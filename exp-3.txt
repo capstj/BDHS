@@ -1,0 +1,55 @@
+3. Program to Create Directories and Copy Files Between Directories Using Hadoop FileSystem API
+
+import java.io.IOException;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.*;
+
+public class HDFSDirectoryOperations {
+
+    public static void main(String[] args) throws IOException {
+        // Load Hadoop configuration
+        Configuration conf = new Configuration();
+        conf.set("fs.defaultFS", "hdfs://quickstart.cloudera:8020");
+
+        // Get the FileSystem object for HDFS
+        FileSystem fs = FileSystem.get(conf);
+
+        // Define source and destination directories in HDFS
+        Path sourceDir = new Path("/user/hadoop/source");
+        Path destDir = new Path("/user/hadoop/destination");
+
+        // 1 Create Directories in HDFS
+        createDirectory(fs, sourceDir);
+        createDirectory(fs, destDir);
+
+        // 2 Copy File from One Directory to Another in HDFS
+        Path sourceFile = new Path("/user/hadoop/source/sample.txt");
+        Path destFile = new Path("/user/hadoop/destination/sample.txt");
+        copyFile(fs, sourceFile, destFile);
+
+        // Close the FileSystem
+        fs.close();
+    }
+
+    // Method to Create a Directory in HDFS
+    public static void createDirectory(FileSystem fs, Path dirPath) throws IOException {
+        if (fs.exists(dirPath)) {
+            System.out.println("Directory already exists: " + dirPath);
+        } else {
+            fs.mkdirs(dirPath);
+            System.out.println("Directory created: " + dirPath);
+        }
+    }
+
+    // Method to Copy a File from One Directory to Another in HDFS
+    public static void copyFile(FileSystem fs, Path source, Path dest) throws IOException {
+        if (!fs.exists(source)) {
+            System.out.println("Source file does not exist: " + source);
+            return;
+        }
+
+        // Copy file within HDFS
+        FileUtil.copy(fs, source, fs, dest, false, fs.getConf());
+        System.out.println("File copied from " + source + " to " + dest);
+    }
+}
