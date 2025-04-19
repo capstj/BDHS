@@ -1,0 +1,456 @@
+import java.io.IOException;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class WordCount {
+
+  public static class TokenizerMapper
+       extends Mapper<Object, Text, Text, IntWritable>{
+
+    private final static IntWritable one = new IntWritable(1);
+    private Text word = new Text();
+
+    public void map(Object key, Text value, Context context
+                    ) throws IOException, InterruptedException {
+      StringTokenizer itr = new StringTokenizer(value.toString());
+      while (itr.hasMoreTokens()) {
+        word.set(itr.nextToken());
+        context.write(word, one);
+      }
+    }
+  }
+
+  public static class IntSumReducer
+       extends Reducer<Text,IntWritable,Text,IntWritable> {
+    private IntWritable result = new IntWritable();
+
+    public void reduce(Text key, Iterable<IntWritable> values,
+                       Context context
+                       ) throws IOException, InterruptedException {
+      int sum = 0;
+      for (IntWritable val : values) {
+        sum += val.get();
+      }
+      result.set(sum);
+      context.write(key, result);
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    Configuration conf = new Configuration();
+    Job job = Job.getInstance(conf, "word count");
+    job.setJarByClass(WordCount.class);
+    job.setMapperClass(TokenizerMapper.class);
+    job.setCombinerClass(IntSumReducer.class);
+    job.setReducerClass(IntSumReducer.class);
+    job.setOutputKeyClass(Text.class);
+    job.setOutputValueClass(IntWritable.class);
+    FileInputFormat.addInputPath(job, new Path(args[0]));
+    FileOutputFormat.setOutputPath(job, new Path(args[1]));
+    System.exit(job.waitForCompletion(true) ? 0 : 1);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2. Program to Perform Read and Write Operations Between Local File System and HDFS Using FileSystem API
+
+import java.io.*;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.*;
+
+public class HDFSFileOperations {
+    
+    public static void main(String[] args) throws IOException {
+        // Load Hadoop configuration
+        Configuration conf = new Configuration();
+        
+        // Set HDFS NameNode URI (change this based on your Hadoop cluster setup)
+        conf.set("fs.defaultFS", "hdfs://quickstart.cloudera:8020");
+
+        // Get the HDFS FileSystem object
+        FileSystem fs = FileSystem.get(conf);
+
+        // Define local and HDFS file paths
+        Path localFilePath = new Path("/home/user/sample.txt");  // Local file path
+        Path hdfsFilePath = new Path("/user/hadoop/sample.txt"); // HDFS destination path
+
+        // 1WRITE from Local File System to HDFS
+        writeFileToHDFS(fs, localFilePath, hdfsFilePath);
+
+        // 2READ from HDFS to Local File System
+        readFileFromHDFS(fs, hdfsFilePath);
+        
+        // Close the FileSystem
+        fs.close();
+    }
+
+    // Method to Write a File from Local System to HDFS
+    public static void writeFileToHDFS(FileSystem fs, Path localPath, Path hdfsPath) throws IOException {
+        // Open input stream to read from local file system
+        FSDataOutputStream outputStream = fs.create(hdfsPath, true);
+        BufferedReader br = new BufferedReader(new FileReader(localPath.toString()));
+        
+        String line;
+        while ((line = br.readLine()) != null) {
+            outputStream.writeBytes(line + "\n");
+        }
+
+        br.close();
+        outputStream.close();
+        System.out.println("File successfully written to HDFS: " + hdfsPath);
+    }
+
+    // Method to Read a File from HDFS
+    public static void readFileFromHDFS(FileSystem fs, Path hdfsPath) throws IOException {
+        if (!fs.exists(hdfsPath)) {
+            System.out.println("File not found in HDFS: " + hdfsPath);
+            return;
+        }
+        
+        FSDataInputStream inputStream = fs.open(hdfsPath);
+        BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
+
+        System.out.println("Reading file from HDFS:");
+        String line;
+        while ((line = br.readLine()) != null) {
+            System.out.println(line);
+        }
+
+        br.close();
+        inputStream.close();
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3. Program to Create Directories and Copy Files Between Directories Using Hadoop FileSystem API
+
+import java.io.IOException;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.*;
+
+public class HDFSDirectoryOperations {
+
+    public static void main(String[] args) throws IOException {
+        // Load Hadoop configuration
+        Configuration conf = new Configuration();
+        conf.set("fs.defaultFS", "hdfs://quickstart.cloudera:8020");
+
+        // Get the FileSystem object for HDFS
+        FileSystem fs = FileSystem.get(conf);
+
+        // Define source and destination directories in HDFS
+        Path sourceDir = new Path("/user/hadoop/source");
+        Path destDir = new Path("/user/hadoop/destination");
+
+        // 1 Create Directories in HDFS
+        createDirectory(fs, sourceDir);
+        createDirectory(fs, destDir);
+
+        // 2 Copy File from One Directory to Another in HDFS
+        Path sourceFile = new Path("/user/hadoop/source/sample.txt");
+        Path destFile = new Path("/user/hadoop/destination/sample.txt");
+        copyFile(fs, sourceFile, destFile);
+
+        // Close the FileSystem
+        fs.close();
+    }
+
+    // Method to Create a Directory in HDFS
+    public static void createDirectory(FileSystem fs, Path dirPath) throws IOException {
+        if (fs.exists(dirPath)) {
+            System.out.println("Directory already exists: " + dirPath);
+        } else {
+            fs.mkdirs(dirPath);
+            System.out.println("Directory created: " + dirPath);
+        }
+    }
+
+    // Method to Copy a File from One Directory to Another in HDFS
+    public static void copyFile(FileSystem fs, Path source, Path dest) throws IOException {
+        if (!fs.exists(source)) {
+            System.out.println("Source file does not exist: " + source);
+            return;
+        }
+
+        // Copy file within HDFS
+        FileUtil.copy(fs, source, fs, dest, false, fs.getConf());
+        System.out.println("File copied from " + source + " to " + dest);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1.	Implement Map-Reduce application to find sum of salaries of employees for each department
+
+Input file for Employee salaries
+Assume we have the following employee data in a text file (employee.txt):
+emp1 dept1 5000
+emp2 dept1 6000
+emp3 dept2 4500
+emp4 dept2 5500
+emp5 dept3 7000
+
+
+MapReduce Components
+1.	Mapper Class: Reads the employee records and emits the department as the key and the salary as the value.
+2.	Reducer Class: Sums the salaries for each department.
+3.	Driver Class: Sets up and runs the job.
+Complete Code
+
+package com.example.employeesalary;
+
+import java.io.IOException;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class EmployeeSalary {
+
+    // Mapper Class
+    public static class SalaryMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+        private Text department = new Text();
+        private IntWritable salary = new IntWritable();
+
+        @Override
+        protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+            String line = value.toString();
+            String[] fields = line.split("\\s+");
+            if (fields.length == 3) {
+                department.set(fields[1]);
+                salary.set(Integer.parseInt(fields[2]));
+                context.write(department, salary);
+            }
+        }
+    }
+
+    // Reducer Class
+    public static class SalaryReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+        @Override
+        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+            int sum = 0;
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+            context.write(key, new IntWritable(sum));
+        }
+    }
+
+    // Driver Class
+    public static void main(String[] args) throws Exception {
+        if (args.length != 2) {
+            System.err.println("Usage: EmployeeSalary <input path> <output path>");
+            System.exit(-1);
+        }
+
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "Employee Salary Sum");
+
+        job.setJarByClass(EmployeeSalary.class);
+        job.setMapperClass(SalaryMapper.class);
+        job.setReducerClass(SalaryReducer.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
+
+
+
+Explanation
+1.	Mapper Class:
+o	SalaryMapper reads each line of the input data.
+o	It splits the line into fields using whitespace as the delimiter.
+o	The department is set as the key and the salary as the value.
+o	It emits the department and salary as key-value pairs.
+2.	Reducer Class:
+o	SalaryReducer receives each department and the list of salaries associated with it.
+o	It iterates through the salaries to compute the sum.
+o	It emits the department and the sum of salaries.
+3.	Driver Class:
+o	EmployeeSalary sets up the job configuration, specifying the mapper and reducer classes, and the input and output formats and paths.
+o	The job is then submitted and monitored until completion.
+Running the MapReduce Job
+1.	Compile the Code:
+o	Save the code in a file, say EmployeeSalary.java.
+o	Compile the Java file using the Hadoop libraries.
+javac -classpath `hadoop classpath` -d . EmployeeSalary.java
+jar -cvf employeesalary.jar -C . .
+
+
+Run the Job:
+•	Use the Hadoop command to run the job. Provide input and output paths.
+hadoop jar employeesalary.jar com.example.employeesalary.EmployeeSalary /input/path  /output/path
+
+
+
+Output:
+•	The output will be a file located at the specified output path, containing the sum of salaries for each department.
+This example demonstrates how to use MapReduce to calculate the sum of salaries for each department in a set of employee records. The Mapper class reads the data and emits the department and salary. The Reducer class sums the salaries for each department and writes the result to the output. The Driver class sets up and runs the MapReduce job. This approach can be adapted to other types of data aggregation tasks using the MapReduce framework.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1.	MapReduce Application to Find Maximum Temperature in Weather Dataset
+
+Sample Weather Data (weather_data.txt)
+
+1950  30
+1950  32
+1951  25
+1951  28
+1951  35
+1952  31
+1952  29
+1952  33
+
+Note:
+The first column represents the year.
+ The second column represents the temperature (°C).
+
+Implementing the MapReduce Program
+
+import java.io.IOException;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class MaxTemperature {
+
+    // Mapper Class
+    public static class MaxTempMapper extends Mapper<Object, Text, Text, IntWritable> {
+        private Text year = new Text();
+        private IntWritable temperature = new IntWritable();
+
+        public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+            String[] fields = value.toString().split("\\s+");
+            if (fields.length == 2) {
+                year.set(fields[0]); // Extract year
+                temperature.set(Integer.parseInt(fields[1])); // Extract temperature
+                context.write(year, temperature);
+            }
+        }
+    }
+
+    // Reducer Class
+    public static class MaxTempReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+        public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+            int maxTemp = Integer.MIN_VALUE;
+            for (IntWritable val : values) {
+                maxTemp = Math.max(maxTemp, val.get());
+            }
+            context.write(key, new IntWritable(maxTemp));
+        }
+    }
+
+    // Driver Program
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "Max Temperature");
+        job.setJarByClass(MaxTemperature.class);
+        job.setMapperClass(MaxTempMapper.class);
+        job.setReducerClass(MaxTempReducer.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
